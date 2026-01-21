@@ -78,6 +78,27 @@ Generic Findings Import
 ```
 resultados_YYYYMMDD_HHMMSS/saida_defectdojo/
 ````
+---
+
+## 🔧 Pré-requisitos
+
+Para executar a automação corretamente, é necessário:
+
+### Sistema Operacional
+- Linux (testado em Kali Linux)
+
+### Ferramentas
+- Python 3.9 ou superior
+- RustScan
+- Nmap
+- Docker e Docker Compose (para uso do DefectDojo)
+
+### Bibliotecas Python
+Instale as dependências com:
+
+```
+pip install -r requirements.txt
+````
 
 ---
 
@@ -163,4 +184,4 @@ defectdojo_findings.csv
 
 👤 Autor
 
-Projeto desenvolvido no contexto de automação def
+Projeto desenvolvido no contexto do Programa Hackers do Bem, com foco em boas práticas, clareza arquitetural e aplicabilidade real em ambientes institucionais.
