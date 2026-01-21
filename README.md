@@ -42,15 +42,15 @@ A automação é organizada em fases sequenciais, cada uma com responsabilidade 
 
 - Classificação de severidade:
 
- - Alta
+    - Alta
 
- - Média
+    - Média
 
- - Baixa
+    - Baixa
 
- - Informacional
+    - Informacional
 
-Geração de relatório analítico (analise.json)
+- Geração de relatório analítico (analise.json)
 
 ### 3️⃣ REAGIR
 
