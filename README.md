@@ -58,13 +58,13 @@ A automação é organizada em fases sequenciais, cada uma com responsabilidade 
 
 - Regras de decisão:
 
-- Executa apenas em portas relevantes (ex: 22, 80)
+    - Executa apenas em portas relevantes (ex: 22, 80)
 
-Ignora portas fora do escopo
+    - Ignora portas fora do escopo
 
-Seleciona scripts Nmap conforme o serviço
+    - Seleciona scripts Nmap conforme o serviço
 
-Resultados armazenados em reagir/
+- Resultados armazenados em reagir/
 
 ### 4️⃣ SAÍDA – DefectDojo
 
