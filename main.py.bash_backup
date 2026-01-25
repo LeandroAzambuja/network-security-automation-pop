@@ -1,0 +1,388 @@
+# Vamos criar a versão FINAL do main.py com todas as fases
+cat > main_final.py << 'EOF'
+#!/usr/bin/env python3
+"""
+Automação RustScan + DefectDojo - VERSÃO FINAL COMPLETA
+Hackers do Bem - Residência
+"""
+
+import sys
+import os
+import argparse
+from datetime import datetime
+
+# Importações
+try:
+    from logs.logger_config import setup_logger
+    from utils.validacao import validar_configuracao, processar_alvos
+    from coletar.rustscan_wrapper_fast import RustScanWrapperFast
+    from observar.analise_resultados import AnalisadorResultados
+    from reagir.scans_direcionados_simulado import ScansDirecionadosSimulado
+    from reagir.scans_direcionados import ScansDirecionados
+    from saida.formatador_defectdojo import FormatadorDefectDojo
+    MODULOS_DISPONIVEIS = True
+except ImportError as e:
+    MODULOS_DISPONIVEIS = False
+    print(f"[AVISO] Módulos não disponíveis: {e}")
+
+def parse_args():
+    """Parse dos argumentos de linha de comando."""
+    parser = argparse.ArgumentParser(
+        description="Automação RustScan + DefectDojo - Hackers do Bem",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Exemplos de uso:
+  %(prog)s --target 192.168.1.1 --scan rapido
+  %(prog)s --targets alvos.txt --scan rapido --output resultados/
+  %(prog)s --cidr 192.168.1.0/24 --scan rapido --verbose
+        """
+    )
+    
+    parser.add_argument("--target", type=str, help="IP único ou hostname")
+    parser.add_argument("--targets", type=str, help="Arquivo com lista de alvos")
+    parser.add_argument("--cidr", type=str, help="Rede em formato CIDR")
+    parser.add_argument("--scan", type=str, choices=["rapido", "completo", "aprofundado"], default="rapido", help="Tipo de escaneamento")
+    parser.add_argument("--config", type=str, default="config.yaml", help="Arquivo de configuração")
+    parser.add_argument("--output", type=str, default=None, help="Diretório de saída")
+    parser.add_argument("--verbose", action="store_true", help="Modo verboso")
+    parser.add_argument("--silent", action="store_true", help="Modo silencioso")
+    parser.add_argument("--teste", action="store_true", help="Modo teste (não executa scans reais)")
+    parser.add_argument("--no-reagir", action="store_true", help="Pular fase REAGIR (scans direcionados)")
+    parser.add_argument("--no-saida", action="store_true", help="Pular fase SAÍDA (formatação DefectDojo)")
+    
+    return parser.parse_args()
+
+def fase_coletar(alvos, tipo_scan, config, logger, modo_teste=False):
+    """Executa fase de coleta (RustScan rápido)."""
+    logger.info("=" * 40)
+    logger.info("FASE 1: COLETAR (RÁPIDO)")
+    logger.info("=" * 40)
+    
+    rustscan = RustScanWrapperFast(config, logger)
+    
+    if not rustscan.testar_rustscan():
+        logger.error("RustScan não disponível. Abortando.")
+        return None
+    
+    if modo_teste:
+        logger.info("[MODO TESTE] Simulando scan do RustScan...")
+        return [{
+            "alvo": alvos[0] if alvos else "teste",
+            "portas": [
+                {"porta": 80, "protocolo": "tcp", "status": "open"},
+                {"porta": 443, "protocolo": "tcp", "status": "open"},
+                {"porta": 22, "protocolo": "tcp", "status": "open"}
+            ],
+            "sucesso": True,
+            "modo_teste": True
+        }]
+    
+    logger.info(f"Executando scan rápido em {len(alvos)} alvo(s)")
+    resultados = []
+    
+    for i, alvo in enumerate(alvos, 1):
+        logger.info(f"Scanning alvo {i}/{len(alvos)}: {alvo}")
+        resultado = rustscan.executar_scan_rapido(alvo)
+        resultados.append(resultado)
+        
+        if i < len(alvos):
+            import time
+            time.sleep(1)
+    
+    total_portas = sum(len(r.get("portas", [])) for r in resultados)
+    logger.info(f"Total de portas encontradas: {total_portas}")
+    
+    return resultados
+
+def fase_observar(resultados_coleta, config, logger, output_dir=None):
+    """Executa fase de observação (análise)."""
+    logger.info("=" * 40)
+    logger.info("FASE 2: OBSERVAR (ANÁLISE)")
+    logger.info("=" * 40)
+    
+    analisador = AnalisadorResultados(config, logger)
+    analise = analisador.analisar(resultados_coleta, output_dir)
+    
+    # Log do resumo
+    resumo = analise.get("resumo", {})
+    logger.info(f"Resumo da análise:")
+    logger.info(f"  Alvos analisados: {resumo.get('alvos_analisados', 0)}")
+    logger.info(f"  Portas encontradas: {resumo.get('portas_encontradas', 0)}")
+    logger.info(f"  Riscos identificados: {resumo.get('riscos_identificados', 0)}")
+    logger.info(f"  Status: {resumo.get('status', 'DESCONHECIDO')}")
+    
+    # Log riscos críticos
+    riscos = analise.get("riscos_potenciais", [])
+    riscos_altos = [r for r in riscos if r.get("severidade") == "alta"]
+    
+    if riscos_altos:
+        logger.warning(f"⚠️  RISCOS ALTOS IDENTIFICADOS: {len(riscos_altos)}")
+        for risco in riscos_altos[:3]:  # Mostra apenas os 3 primeiros
+            logger.warning(f"  - {risco['alvo']}:{risco['porta']} ({risco['servico']})")
+    
+    return analise
+
+def fase_reagir(resultados_coleta, analise, config, logger, output_dir=None, modo_teste=False):
+    """Executa fase de reação (scans direcionados)."""
+    logger.info("=" * 40)
+    logger.info("FASE 3: REAGIR (SCANS DIRECIONADOS)")
+    logger.info("=" * 40)
+    
+    try:
+        # Tenta importar o módulo REAGIR
+        if modo_teste:
+            # Usa versão simulada para testes
+            reagir = ScansDirecionadosSimulado(config, logger)
+            logger.info("[MODO TESTE] Usando scans direcionados simulados")
+        else:
+            # Usa versão real
+            reagir = ScansDirecionados(config, logger)
+        
+        # Executa scans direcionados
+        resultados_reagir = reagir.executar_scans(resultados_coleta, analise, output_dir)
+        
+        # Log estatísticas
+        if resultados_reagir:
+            estatisticas = resultados_reagir.get("estatisticas", {})
+            logger.info(f"Estatísticas dos scans direcionados:")
+            logger.info(f"  Total de scans: {estatisticas.get('total', 0)}")
+            logger.info(f"  Scans bem sucedidos: {estatisticas.get('sucesso', 0)}")
+            
+            # Mostra distribuição por categoria
+            for categoria, dados in estatisticas.get("por_categoria", {}).items():
+                logger.info(f"  {categoria}: {dados.get('total', 0)} scans")
+        else:
+            logger.warning("Nenhum resultado retornado da fase REAGIR")
+        
+        return resultados_reagir
+        
+    except ImportError as e:
+        logger.warning(f"Módulo REAGIR não disponível: {e}")
+        logger.warning("Pulando fase REAGIR...")
+        return None
+    except Exception as e:
+        logger.error(f"Erro na fase REAGIR: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
+
+def fase_saida(resultados_coleta, analise, resultados_reagir, config, logger, output_dir=None):
+    """Executa fase de saída (formatação DefectDojo)."""
+    logger.info("=" * 40)
+    logger.info("FASE 4: SAÍDA (FORMATAÇÃO DEFECTDOJO)")
+    logger.info("=" * 40)
+    
+    try:
+        # Importa e executa formatador
+        formatador = FormatadorDefectDojo(config, logger)
+        
+        # Gera todos os formatos
+        saidas = formatador.gerar_todos_formatos(
+            resultados_coleta, 
+            analise, 
+            resultados_reagir, 
+            output_dir
+        )
+        
+        logger.info("✅ Saídas formatadas geradas com sucesso:")
+        logger.info(f"  • CSV Generic (Importação Universal)")
+        logger.info(f"  • Nmap XML (Formato Nativo)")
+        logger.info(f"  • JSON Estruturado")
+        logger.info(f"  • Relatório Executivo")
+        logger.info(f"  • Resumo Técnico")
+        
+        return saidas
+        
+    except ImportError as e:
+        logger.warning(f"Módulo SAÍDA não disponível: {e}")
+        logger.warning("Pulando fase SAÍDA...")
+        return None
+    except Exception as e:
+        logger.error(f"Erro na fase SAÍDA: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
+
+def main():
+    """Função principal da automação."""
+    args = parse_args()
+    
+    if MODULOS_DISPONIVEIS:
+        nivel_log = "DEBUG" if args.verbose else ("ERROR" if args.silent else "INFO")
+        logger = setup_logger(nivel=nivel_log)
+        log_info = logger.info
+        log_error = logger.error
+    else:
+        log_info = print
+        log_error = print
+    
+    log_info("=" * 60)
+    log_info("INICIANDO AUTOMAÇÃO RUSTSCAN + DEFECTDOJO")
+    log_info("Hackers do Bem - Residência")
+    log_info(f"Data/Hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log_info("=" * 60)
+    
+    if not any([args.target, args.targets, args.cidr]):
+        log_error("Nenhum alvo especificado. Use --target, --targets ou --cidr")
+        sys.exit(1)
+    
+    try:
+        # Configuração
+        if MODULOS_DISPONIVEIS:
+            config = validar_configuracao(args.config)
+        else:
+            config = {"configuracao": {"tipo_scan": args.scan}}
+        
+        # Processa alvos
+        alvos = []
+        if args.target:
+            alvos = processar_alvos(args.target, "ip") if MODULOS_DISPONIVEIS else [args.target]
+            log_info(f"Alvo único: {args.target}")
+        elif args.targets:
+            alvos = processar_alvos(args.targets, "arquivo") if MODULOS_DISPONIVEIS else []
+            if not alvos:
+                with open(args.targets, 'r') as f:
+                    alvos = [linha.strip() for linha in f if linha.strip()]
+            log_info(f"Arquivo de alvos: {args.targets} ({len(alvos)} alvos)")
+        elif args.cidr:
+            alvos = processar_alvos(args.cidr, "cidr") if MODULOS_DISPONIVEIS else [args.cidr]
+            log_info(f"Rede CIDR: {args.cidr}")
+        
+        if not alvos:
+            log_error("Nenhum alvo válido para processamento")
+            sys.exit(1)
+        
+        log_info(f"Total de alvos a processar: {len(alvos)}")
+        
+        # Cria diretório de saída
+        if args.output:
+            output_dir = args.output
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_dir = f"resultado_automacao_{timestamp}"
+        
+        os.makedirs(output_dir, exist_ok=True)
+        log_info(f"Diretório de saída: {output_dir}")
+        
+        # FASE 1: COLETAR
+        resultados_coleta = fase_coletar(
+            alvos, 
+            args.scan, 
+            config, 
+            logger,
+            modo_teste=args.teste
+        )
+        
+        if resultados_coleta is None:
+            log_error("Falha na fase de coleta")
+            sys.exit(1)
+        
+        # Salva resultados da coleta
+        import json
+        coleta_file = os.path.join(output_dir, "resultados_coleta.json")
+        with open(coleta_file, 'w', encoding='utf-8') as f:
+            json.dump(resultados_coleta, f, indent=2, ensure_ascii=False)
+        log_info(f"Resultados da coleta salvos em: {coleta_file}")
+        
+        # FASE 2: OBSERVAR
+        analise = fase_observar(resultados_coleta, config, logger, output_dir)
+        
+        # Salva análise completa
+        analise_file = os.path.join(output_dir, "analise_completa.json")
+        with open(analise_file, 'w', encoding='utf-8') as f:
+            json.dump(analise, f, indent=2, ensure_ascii=False)
+        log_info(f"Análise completa salva em: {analise_file}")
+        
+        # FASE 3: REAGIR (opcional)
+        resultados_reagir = None
+        if not args.no_reagir:
+            resultados_reagir = fase_reagir(
+                resultados_coleta,
+                analise,
+                config,
+                logger,
+                output_dir,
+                modo_teste=args.teste
+            )
+        
+        # FASE 4: SAÍDA (opcional)
+        saidas_formatadas = None
+        if not args.no_saida:
+            saidas_formatadas = fase_saida(
+                resultados_coleta,
+                analise,
+                resultados_reagir,
+                config,
+                logger,
+                output_dir
+            )
+        
+        # Resumo final
+        log_info("=" * 60)
+        log_info("RESUMO FINAL DA EXECUÇÃO")
+        log_info("=" * 60)
+        
+        resumo = analise.get("resumo", {})
+        log_info(f"Alvos processados: {len(alvos)}")
+        log_info(f"Portas encontradas: {resumo.get('portas_encontradas', 0)}")
+        log_info(f"Riscos identificados: {resumo.get('riscos_identificados', 0)}")
+        log_info(f"Status de segurança: {resumo.get('status', 'DESCONHECIDO')}")
+        
+        if resultados_reagir:
+            estatisticas_reagir = resultados_reagir.get("estatisticas", {})
+            log_info(f"Scans direcionados: {estatisticas_reagir.get('total', 0)} executados")
+        
+        if saidas_formatadas:
+            log_info(f"Formatos de saída: 5 tipos gerados")
+        
+        if args.teste:
+            log_info("Modo: TESTE (scans simulados)")
+        
+        log_info("\n" + "=" * 60)
+        log_info("✅ AUTOMAÇÃO CONCLUÍDA COM SUCESSO!")
+        log_info("=" * 60)
+        
+        # Instruções finais
+        log_info("\n📁 RESULTADOS DISPONÍVEIS:")
+        log_info(f"  Local: {output_dir}/")
+        log_info(f"  Coleta: {output_dir}/resultados_coleta.json")
+        log_info(f"  Análise: {output_dir}/analise_completa.json")
+        
+        if resultados_reagir:
+            log_info(f"  Scans Direcionados: {output_dir}/reagir/")
+        
+        if saidas_formatadas:
+            log_info(f"  Saídas DefectDojo: {output_dir}/saida_defectdojo/")
+            log_info(f"    • CSV para importação: {output_dir}/saida_defectdojo/defectdojo_generic_*.csv")
+            log_info(f"    • Nmap XML: {output_dir}/saida_defectdojo/nmap_scan_*.xml")
+        
+        log_info("\n🚀 PRÓXIMOS PASSOS:")
+        log_info("  1. Importe o CSV ou XML no DefectDojo")
+        log_info("  2. Revise os riscos identificados")
+        log_info("  3. Implemente as recomendações de mitigação")
+        
+    except KeyboardInterrupt:
+        log_info("\nExecução interrompida pelo usuário")
+        sys.exit(130)
+    except Exception as e:
+        log_error(f"Erro durante execução: {str(e)}")
+        import traceback
+        log_error(traceback.format_exc())
+        sys.exit(1)
+
+if __name__ == "__main__":
+    if "--help" in sys.argv or "--teste" in sys.argv:
+        main()
+    else:
+        if os.geteuid() != 0:
+            print("\n" + "=" * 60)
+            print("AVISO: Recomenda-se executar com privilégios de superusuário")
+            print("       Para funcionalidade completa do RustScan/Nmap")
+            print("=" * 60)
+            resposta = input("\nContinuar mesmo assim? (s/N): ")
+            if resposta.lower() != 's':
+                sys.exit(0)
+        
+        main()
+EOF
+
