@@ -228,7 +228,7 @@ defectdojo_findings.csv
 
 ---
 
-#👤 Autor
+👤 Autor
 
 Projeto desenvolvido no contexto da Residência Técnica POP – Hackers do Bem, com foco em automação defensiva, governança e operação realista de segurança.
 
