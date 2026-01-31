@@ -7,6 +7,14 @@ O projeto foi construído com arquitetura modular, pipeline auditável e interfa
 
 🔄 Esta é a Versão 2.0 da automação, com evolução significativa em operação, controle de execução e integração com DefectDojo.
 
+
+Version 2.0 – Operational CLI, Locking, and CSV Export
+A defensive security automation developed in Python, designed for continuous execution in Linux (POP) environments. It focuses on periodic service exposure monitoring, intelligent analysis, reactive targeted scanning, and native DefectDojo integration for vulnerability management.
+
+The project is built with a modular architecture, an auditable pipeline, and an operational command-line interface (CLI), simulating a real-world institutional defensive operations scenario.
+
+🔄 This is Version 2.0 of the automation, featuring significant evolutions in operations, execution control, and DefectDojo integration.
+
 ---
 
 ## 🆕 O que mudou na Versão 2.0
