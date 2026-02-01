@@ -1,0 +1,6 @@
+# Lista de alvos para teste
+# Alvos seguros e autorizados
+
+scanme.nmap.org
+8.8.8.8
+127.0.0.1
