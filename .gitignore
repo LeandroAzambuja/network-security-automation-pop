@@ -19,3 +19,8 @@ debug_*.py
 # Binários
 rustscan_2.3.0_amd64.deb
 
+resultados/
+*.log
+*.tar.gz
+__pycache__/
+*.pyc
