@@ -125,25 +125,6 @@ Parâmetros principais:
 
 ---
 
-## 🔹 Modo Interativo (Fallback)
-
-Executado automaticamente quando nenhum parâmetro é passado:
-
-````
-python3 main.py
-````
-
-Solicita interativamente:
-
-- Tipo de varredura
-- Alvo
-- Frequência
-- Duração
-
-Mantido para uso supervisionado ou didático.
-
----
-
 ## 🔧 Pré-requisitos
 
 ### Sistema Operacional
