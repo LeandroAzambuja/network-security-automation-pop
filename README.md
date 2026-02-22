@@ -1,44 +1,42 @@
 # 🛡️ Automação de Varredura e Integração com DefectDojo
 
-Versão 2.0 – CLI Operacional, Locking e Exportação CSV
+Versão 2.1 – Integração API Automática e Execução Contínua
 
-Automação de segurança defensiva desenvolvida em Python, projetada para execução contínua em ambiente Linux (POP), com foco em monitoramento periódico de exposição de serviços, análise inteligente, reação com scans direcionados e integração nativa com DefectDojo para gestão de vulnerabilidades.
+Automação de segurança defensiva desenvolvida em Python, projetada para execução contínua em ambiente Linux (POP), com foco em monitoramento periódico de exposição de serviços, análise inteligente, reação com scans direcionados e integração nativa com DefectDojo via API REST para gestão centralizada de vulnerabilidades.
 
-O projeto foi construído com arquitetura modular, pipeline auditável e interface operacional de linha de comando (CLI), simulando um cenário real de operação defensiva institucional.
-
-🔄 Esta é a Versão 2.0 da automação, com evolução significativa em operação, controle de execução e integração com DefectDojo.
-
+A arquitetura é modular, auditável, desacoplada e preparada para operação institucional contínua.
 
 ---
 
-## 🆕 O que mudou na Versão 2.0
+🆕 O que mudou na Versão 2.1
 
-Principais evoluções implementadas:
+Evoluções implementadas:
 
-- ✅ CLI operacional (scanctl) no padrão de ferramentas Linux
-- ✅ Modo interativo mantido, agora como fallback
-- ✅ Execução única (test) vs execução operacional (run)
-- ✅ Lock de execução para evitar múltiplos scans concorrentes
-- ✅ Comando de status para visibilidade operacional
-- ✅ Cancelamento manual seguro
-- ✅ Exportação CSV compatível com DefectDojo – Generic Findings Import
-- ✅ Correção de cabeçalhos e datas (Date)
-- ✅ Separação clara entre teste e produção
-- ✅ Base preparada para agendamento e expiração automática
+- ✅ Integração automática via API REST do DefectDojo (v2)
+- ✅ Criação automática de Engagement por data
+- ✅ Criação automática de Test e Findings
+- ✅ Retorno HTTP validado (201 Created)
+- ✅ Log explícito de IMPORT STATUS e IMPORT RESPONSE
+- ✅ Execução contínua validada via cron
+- ✅ Token via variável de ambiente (segurança operacional)
+- ✅ Arquitetura desacoplada entre core e integração
 
-Nenhuma funcionalidade da versão anterior foi removida — apenas profissionalizada.
+A importação não depende mais de ação manual.
+
+
+
 
 ---
 
 ## 🎯 Objetivo do Projeto
 
 - Automatizar varreduras periódicas de rede em ambiente POP
-- Identificar portas abertas e serviços potencialmente expostos
-- Reduzir ruído por meio de análise e escopo controlado
+- Identificar portas abertas e serviços expostos
+- Reduzir ruído com governança de escopo
 - Executar scans direcionados apenas quando relevante
-- Centralizar resultados no DefectDojo para gestão e histórico
-- Facilitar rastreabilidade, auditoria e resposta contínua
-- Operar de forma segura, previsível e auditável
+- Centralizar resultados automaticamente no DefectDojo
+- Permitir operação contínua sem intervenção humana
+- Detectar alterações indevidas de exposição
 
 ---
 
@@ -50,165 +48,148 @@ A automação é organizada em fases sequenciais, cada uma com responsabilidade 
 
 ## 1️⃣ COLETAR
 
-- Varredura rápida de portas (1–65535)
-- Utiliza RustScan para alta performance
-- Identificação de portas abertas, serviços e alvos
-- Saída estruturada e reutilizável
+- RustScan → varredura rápida 1–65535
+- Identificação de portas abertas
 
 ---
 
 ## 2️⃣ OBSERVAR
-
-- Análise dos dados coletados
-- Consolidação e correlação das informações
-- Classificação de severidade por exposição:
-  - Alta
-  - Média
-  - Baixa
-  - Informacional
-- Redução de ruído e priorização realista
+- Análise estruturada
+- Classificação de severidade
 
 ---
 
 ## 3️⃣ REAGIR
 
-- Execução de scans direcionados reais com Nmap
-- Regras de decisão baseadas em escopo:
-  - Executa apenas em portas relevantes (ex: 21, 22, 80, 443, 445, etc.)
-  - Ignora portas fora do escopo definido
-  - Scripts e técnicas adequadas por serviço
-- Evita varreduras excessivas e falsos positivos
+- Execução de Nmap direcionado
+- Apenas portas relevantes (21,22,80,443,445, etc.)
+- Ignora escopo fora de governança
 
 ---
 
-## 4️⃣ SAÍDA – DefectDojo (CSV)
+## 4️⃣ SAÍDA – DefectDojo (API)
 
-- Geração automática de CSV compatível com Generic Findings Import
-- Cabeçalhos e campos validados:
-  - Title
-  - Severity
-  - Description
-  - Mitigation
-  - Date
-  - Target
-- Importação validada com sucesso no DefectDojo
+Fluxo automático:
 
-Estrutura padronizada dos artefatos:
 
 ```` 
-resultados/YYYY-MM-DD/HHMMSS/saida_defectdojo/defectdojo_findings.csv
+scanctl run
+   ↓
+Pipeline executado
+   ↓
+Geração CSV compatível
+   ↓
+Importação automática via API REST
+   ↓
+Product → Engagement (por data) → Test → Findings
+
+
 ````
+Endpoint utilizado:
+
+````
+POST /api/v2/import-scan/
+````
+Tipo de importação:
+
+````
+Generic Findings Import
+````
+Validação real:
+
+- HTTP 201 Created
+- test_id retornado
+- engagement_id retornado
+- Estatísticas de severidade retornadas
 
 ---
 
-## 🧭 Modos de Operação (v2)
+## 🔄 Execução Contínua (Operação POP)
+
+A automação é compatível com execução periódica via cron:
+
+````
+0 2 * * * /home/user/automacao/run_scan.sh
+````
+Requisitos:
+
+- Serviço cron ativo
+- Token definido via variável de ambiente
+- Máquina ligada (cron não executa com sistema desligado)
+- Execução validada em ambiente Kali Linux.
 
 ---
 
-## 🔹 Modo CLI (Recomendado – Produção)
-
-Interface no padrão de ferramentas Linux/Kali:
+## 🧭 CLI Operacional
 
 ````
-./scanctl run -t <IP_ALVO> -s completo -d 30
-````
+/scanctl run -t <IP> -s completo -d 30
+```` 
+Comandos:
 
-Parâmetros principais:
-
-- run → executa uma instância operacional do pipeline
-- test → execução pontual para validação técnica
-- status → exibe execução ativa no momento (se existir)
-- cancel → cancela execução ativa no momento
-- t → alvo
-- s → tipo de varredura (rapido | completo)
-- d → janela máxima de validade da execução (em dias)
+- run → execução operacional
+- test → execução pontual
+- status → verifica execução ativa
+- cancel → cancela execução ativa
 
 ---
 
-## 🔧 Pré-requisitos
-
-### Sistema Operacional
-
-- Linux (testado em Kali Linux)
-
-### Ferramentas
-
-- Python 3.9+
-- RustScan
-- Nmap
-- Docker / Docker Compose (DefectDojo)
-
-### Bibliotecas Python
-
-
----
-
-## 📂 Estrutura de Diretórios (v2)
-
-````
-
-automacao/
-├── coletar/ # Varredura de portas (RustScan)
-├── observar/ # Análise e classificação
-├── reagir/ # Scans direcionados (Nmap)
-├── saida/ # Exportação CSV (DefectDojo)
-├── utils/ # Lock, validações e controle
-├── logs/ # Logs operacionais
-├── config.yaml # Configuração
-├── main.py # Orquestrador
-├── scanctl # CLI operacional (entrypoint)
-
-````
----
-
-## 📥 Integração com DefectDojo
-
-- Tipo de importação: Generic Findings Import
-- Arquivo gerado automaticamente:
-
-````
-defectdojo_findings.csv
-````
-
-- Importação via Product + Engagement
-- Findings exibidos corretamente com severidade e alvo
-- Histórico preservado
-
----
-
-## 🔐 Segurança e Operação
+##🔐 Segurança e Governança
 
 - Lock de execução (/tmp/scanctl.lock)
-- Prevenção de múltiplos scans concorrentes
-- Status visível em tempo real
-- Cancelamento seguro
-- Separação clara entre teste e produção
-- Código auditável e modular
+- Prevenção de concorrência
+- Token fora do código (env var)
+- Logs estruturados
+- Separação clara entre pipeline e API
+- Importação idempotente por data
 
 ---
 
-## 📌 Estado Atual do Projeto (v2)
+## 📂 Estrutura
 
-✅ Pipeline completo funcional  
-✅ CLI profissional implementada  
-✅ Lock e controle operacional  
-✅ CSV DefectDojo validado  
-✅ Modo teste e produção separados  
-✅ Pronto para uso institucional e avaliação técnica  
+````
+automacao/
+├── coletar/
+├── observar/
+├── reagir/
+├── saida/
+│   ├── defectdojo_csv.py
+│   ├── defectdojo_importer.py
+│   └── defectdojo_api.py
+├── utils/
+├── logs/
+├── config.yaml
+├── main.py
+├── scanctl
+````
+---
+## 📌 Estado Atual (v2.1)
+
+- ✅ Pipeline funcional
+- ✅ CLI operacional
+- ✅ Lock implementado
+- ✅ CSV validado
+- ✅ Integração API REST validada
+- ✅ Execução via cron validada
+- ✅ Testes múltiplos criados automaticamente
+- ✅ Operação contínua confirmada
+
+Pronto para uso institucional.
 
 ---
 
-## 🔜 Próximos Passos Planejados
+## 🔜 Evoluções Futuras (opcional)
 
-- Expiração automática completa baseada em -d DAYS
-- Agendamento automático (cron/systemd)
-- Cancelamento via CLI
-- Importação automática via API do DefectDojo
-- Hardening final e empacotamento
-- Documentação visual para banca
+- Alertas automáticos por severidade
+- Integração com SIEM
+- Containerização
+- Empacotamento como serviço
+- Hardening adicional
 
 ---
 
-## 👤 Autor
+##👤 Autor
+
+Projeto desenvolvido no contexto da Residência Técnica POP – Hackers do Bem, com foco em automação defensiva, governança e operação contínua de segurança.
 
 Projeto desenvolvido no contexto da Residência Técnica POP – Hackers do Bem, com foco em automação defensiva, governança e operação realista de segurança.
