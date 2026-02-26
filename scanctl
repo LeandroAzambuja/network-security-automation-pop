@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+
+import argparse
+from main import executar
+from utils.lock import status as lock_status, cancel as lock_cancel
+
+def parse_args():
+    parser = argparse.ArgumentParser(prog="scanctl")
+    sub = parser.add_subparsers(dest="cmd")
+
+    run = sub.add_parser("run", help="Executa varredura (produção)")
+    run.add_argument("-t", "--target", required=True)
+    run.add_argument("-s", "--scan", choices=["rapido", "completo"], required=True)
+    run.add_argument("-f", "--freq", type=int, choices=[6, 12, 24], default=24)
+    run.add_argument("-d", "--days", type=int, default=7)
+
+    test = sub.add_parser("test", help="Executa varredura única (teste)")
+    test.add_argument("-t", "--target", required=True)
+    test.add_argument("-s", "--scan", choices=["rapido", "completo"], required=True)
+
+    sub.add_parser("status", help="Mostra execução ativa")
+    sub.add_parser("cancel", help="Cancela execução em andamento")
+
+    return parser.parse_args()
+
+def main():
+    args = parse_args()
+
+    if args.cmd == "status":
+        st = lock_status()
+        if not st:
+            print("Nenhuma execução em andamento.")
+        else:
+            print("Execução ativa:")
+            for k, v in st.items():
+                print(f"  {k}: {v}")
+        return
+
+    if args.cmd == "cancel":
+        ok, msg = lock_cancel()
+        print(msg)
+        return
+
+    if args.cmd in ("run", "test"):
+        config_usuario = {
+            "scan": args.scan,
+            "alvos": [args.target],
+            "frequencia_horas": getattr(args, "freq", None),
+            "duracao_dias": getattr(args, "days", None),
+            "modo": args.cmd,
+        }
+        executar(config_usuario)
+        return
+
+    print("Use: scanctl run | test | status | cancel")
+
+if __name__ == "__main__":
+    main()

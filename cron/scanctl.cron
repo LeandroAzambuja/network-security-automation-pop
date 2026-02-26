@@ -1,0 +1,2 @@
+# Executa varredura completa uma vez por dia
+0 2 * * * /usr/local/bin/scanctl-run.sh

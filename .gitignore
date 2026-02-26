@@ -1,0 +1,26 @@
+# Resultados de execução
+resultados/
+resultados_*/
+
+# Logs e arquivos temporários
+*.log
+*.tar.gz
+*.backup*
+*.save
+
+# Python
+__pycache__/
+*.pyc
+
+# Testes e debug
+test_*.py
+debug_*.py
+
+# Binários
+rustscan_2.3.0_amd64.deb
+
+resultados/
+*.log
+*.tar.gz
+__pycache__/
+*.pyc

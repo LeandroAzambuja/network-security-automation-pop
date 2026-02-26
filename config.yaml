@@ -1,0 +1,57 @@
+# Configuração da Automação RustScan + DefectDojo
+# Hackers do Bem - Residência
+
+configuracao:
+  tipo_scan: "completo"  # rapido, completo, aprofundado
+  frequencia_execucao:
+    execucoes_dia: 2
+    execucoes_mes: 60
+    intervalo_horas: 12
+  parametros_gerais:
+    timeout_rustscan: 1500
+    timeout_nmap: 600
+    threads_rustscan: 1000
+    verbose: true
+    modo_silencioso: false
+
+alvos:
+  formato_entrada: "auto"  # auto, ip, lista, cidr, hostname
+  arquivo_lista: "alvos.txt"
+  lista_direta: []
+  # Exemplos:
+  #   - "192.168.1.1"
+  #   - "192.168.1.0/24"
+  #   - "exemplo.com"
+
+rustscan:
+  comandos:
+    rapido: "-t 2000 -b 1500 --ulimit 5000 -- -sV -T4 -O -F --version-light"
+    completo: "-t 2000 -b 1500 --ulimit 5000 -- -sV -sC -O -A -T4"
+    aprofundado: "-t 2000 -b 1500 --ulimit 5000 -- -sV -sC -O -A -T4 -p- --script vuln"
+
+nmap_reacao:
+  scripts_direcionados:
+    - "http-enum"
+    - "ssh-auth-methods"
+    - "smb-security-mode"
+    - "ssl-enum-ciphers"
+    - "ftp-anon"
+  parametros: "-sV -sC -T4 --script-timeout 90"
+
+defectdojo:
+  formatos_suportados:
+    - "xml"  # Nmap XML
+    - "json" # RustScan JSON
+  estrutura_pastas:
+    base: "resultados_scans"
+    formato_data: "%Y-%m-%d_%H-%M-%S"
+  metadados:
+    scanner: "RustScan+Nmap"
+    versao_automacao: "1.0"
+    equipe: "Hackers do Bem"
+
+logs:
+  nivel: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  arquivo: "logs/automacao.log"
+  max_tamanho_mb: 10
+  backup_count: 5

@@ -1,0 +1,5 @@
+python-nmap==0.7.1
+PyYAML>=5.4.1
+colorlog>=6.7.0
+click>=8.1.7
+requests>=2.31.0
